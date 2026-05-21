@@ -1,75 +1,76 @@
 package com.viniciusDizatnikis.auth_service.controllers;
 
-import com.viniciusDizatnikis.auth_service.domain.user.User;
-import com.viniciusDizatnikis.auth_service.dto.LoginRequestDTO;
-import com.viniciusDizatnikis.auth_service.dto.RegisterRequestDTO;
-import com.viniciusDizatnikis.auth_service.dto.ResponseDTO;
-import com.viniciusDizatnikis.auth_service.infra.security.TokenService;
-import com.viniciusDizatnikis.auth_service.repositories.UserRepository;
-
+import com.viniciusDizatnikis.auth_service.dto.*;
+import com.viniciusDizatnikis.auth_service.service.AuthService;
+import com.viniciusDizatnikis.auth_service.service.EmailVerificationService;
+import com.viniciusDizatnikis.auth_service.service.PasswordResetService;
+import com.viniciusDizatnikis.auth_service.service.RefreshTokenService;
 import lombok.RequiredArgsConstructor;
-
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
 public class AuthController {
 
-    private final UserRepository repository;
-    private final PasswordEncoder passwordEncoder;
-    private final TokenService tokenService;
-
-    @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequestDTO body) {
-
-        User user = repository.findByEmail(body.email())
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        boolean passwordMatches = passwordEncoder.matches(
-                body.password(),
-                user.getPassword()
-        );
-
-        if (!passwordMatches) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-
-        String token = tokenService.generateToken(user);
-
-        return ResponseEntity.ok(
-                new ResponseDTO(user.getName(), token)
-        );
-    }
+    private final AuthService authService;
+    private final EmailVerificationService emailVerificationService; // novo
+    private final PasswordResetService passwordResetService;
+    private final RefreshTokenService refreshTokenService;
 
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody RegisterRequestDTO body) {
+    public ResponseEntity<String> register(@RequestBody RegisterRequestDTO dto) {
+        String result = authService.register(dto);
+        return ResponseEntity.ok(result);
+    }
 
-        Optional<User> user = repository.findByEmail(body.email());
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponseDTO> login(@RequestBody LoginRequestDTO dto) {
+        LoginResponseDTO response = authService.login(dto);
+        return ResponseEntity.ok(response);
+    }
 
-        if (user.isPresent()) {
-            return ResponseEntity.badRequest().build();
-        }
+    @PostMapping("/verify-email")
+    public ResponseEntity<String> verifyEmail(@RequestBody VerifyEmailDTO dto) {
+        emailVerificationService.verifyCode(dto.email(), dto.code());
+        return ResponseEntity.ok("Email verificado com sucesso");
+    }
 
-        User newUser = new User();
+    @PostMapping("/forgot-password")
+    public ResponseEntity<String> forgotPassword(@RequestBody RequestPasswordResetDTO dto) {
+        String code = passwordResetService.requestCode(dto.email());
+        return ResponseEntity.ok("Codigo gerado: " + code); // temporario
+    }
 
-        newUser.setName(body.name());
-        newUser.setEmail(body.email());
-        newUser.setPassword(
-                passwordEncoder.encode(body.password())
-        );
+    @PostMapping("/reset-password")
+    public ResponseEntity<String> resetPassword(@RequestBody ResetPasswordDTO dto) {
+        passwordResetService.resetPassword(dto.email(), dto.code(), dto.newPassword());
+        return ResponseEntity.ok("Senha alterada com sucesso");
+    }
 
-        repository.save(newUser);
 
-        String token = tokenService.generateToken(newUser);
+    @PostMapping("/pre-register")
+    public ResponseEntity<String> preRegister(@RequestBody RequestPasswordResetDTO dto) {
+        String result = authService.preRegister(dto.email());
+        return ResponseEntity.ok(result);
+    }
 
-        return ResponseEntity.ok(
-                new ResponseDTO(newUser.getName(), token)
-        );
+    @PostMapping("/verify-pre-register")
+    public ResponseEntity<String> verifyPreRegister(@RequestBody VerifyEmailDTO dto) {
+        authService.verifyPreRegisterCode(dto.email(), dto.code());
+        return ResponseEntity.ok("Email verificado. Prossiga com o cadastro");
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<RefreshResponseDTO> refresh(@RequestBody RefreshRequestDTO dto) {
+        String newAccessToken = refreshTokenService.refresh(dto.refreshToken());
+        return ResponseEntity.ok(new RefreshResponseDTO(newAccessToken));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<String> logout(@RequestBody RefreshRequestDTO dto) {
+        refreshTokenService.revoke(dto.refreshToken());
+        return ResponseEntity.ok("Logout realizado com sucesso");
     }
 }

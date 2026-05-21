@@ -1,7 +1,8 @@
 package com.viniciusDizatnikis.auth_service.dto;
 
-public record RegisterRequestDTO(
+public record UserResponseDTO(
+        String id,
         String name,
         String email,
-        String password
+        Boolean emailVerified
 ) {}

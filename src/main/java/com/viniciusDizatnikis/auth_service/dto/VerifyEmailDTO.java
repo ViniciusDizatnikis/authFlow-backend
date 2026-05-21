@@ -1,6 +1,6 @@
 package com.viniciusDizatnikis.auth_service.dto;
 
-public record LoginRequestDTO(
+public record VerifyEmailDTO(
         String email,
-        String password
+        String code
 ) {}
