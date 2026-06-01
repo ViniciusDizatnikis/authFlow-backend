@@ -2,6 +2,11 @@ package com.viniciusDizatnikis.auth_service.service;
 
 import com.viniciusDizatnikis.auth_service.domain.token.EmailVerificationToken;
 import com.viniciusDizatnikis.auth_service.domain.user.User;
+import com.viniciusDizatnikis.auth_service.dto.register.VerifyEmailResponseDTO;
+import com.viniciusDizatnikis.auth_service.exception.EmailVerificationTokenNotFound;
+import com.viniciusDizatnikis.auth_service.exception.InvalidVerificationCodeException;
+import com.viniciusDizatnikis.auth_service.exception.TokenExpiredException;
+import com.viniciusDizatnikis.auth_service.exception.TooManyAttemptsException;
 import com.viniciusDizatnikis.auth_service.infra.security.CodeService;
 import com.viniciusDizatnikis.auth_service.repositories.EmailVerificationTokenRepository;
 import com.viniciusDizatnikis.auth_service.repositories.UserRepository;
@@ -20,41 +25,35 @@ public class EmailVerificationService {
 
     private final EmailService emailService;
 
-    // chamado automaticamente no register — ja existe no AuthService
-    // esse metodo e util se o usuario pedir reenvio do codigo
-    public String generateCode(User user) {
-        String code = codeService.generateCode();
+    public VerifyEmailResponseDTO verifyCode(String email, String inputCode) {
 
-        EmailVerificationToken token = new EmailVerificationToken();
-        token.setUser(user);
-        token.setCodeHash(codeService.hashCode(code));
-        token.setExpiresAt(LocalDateTime.now().plusMinutes(30));
-        tokenRepository.save(token);
-
-        emailService.sendVerificationCode(user.getEmail(), code); // envia de verdade
-
-        return "Codigo enviado para o email";
-    }
-
-    public void verifyCode(String email, String inputCode) {
         EmailVerificationToken token = tokenRepository
                 .findTopByUser_EmailAndUsedFalseOrderByCreatedAtDesc(email)
-                .orElseThrow(() -> new RuntimeException("Nenhum codigo pendente para esse email"));
+                .orElseThrow(() ->
+                        new EmailVerificationTokenNotFound(
+                                "Nenhum token ativo encontrado para o e-mail: " + email
+                        )
+                );
+
 
         if (token.getExpiresAt().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("Codigo expirado");
+            throw new TokenExpiredException("Codigo expirado");
         }
 
         if (token.getAttempts() >= 5) {
-            throw new RuntimeException("Muitas tentativas. Solicite um novo codigo");
+            throw new TooManyAttemptsException("Muitas tentativas. Solicite um novo codigo");
         }
 
-        // incrementa tentativa ANTES de validar — evita timing attack
+
+        // incrementa tentativa ANTES de validar
         token.setAttempts(token.getAttempts() + 1);
         tokenRepository.save(token);
 
+
         if (!codeService.verify(inputCode, token.getCodeHash())) {
-            throw new RuntimeException("Codigo incorreto. Tentativas restantes: " + (5 - token.getAttempts()));
+            throw new InvalidVerificationCodeException(
+                    "Código incorreto. Tentativas restantes: " + (5 - token.getAttempts())
+            );
         }
 
         // codigo correto — marca como usado e verifica o email do usuario
@@ -64,5 +63,11 @@ public class EmailVerificationService {
         User user = token.getUser();
         user.setEmailVerified(true);
         userRepository.save(user);
+
+        return new VerifyEmailResponseDTO(
+                200,
+                "EMAIL_VERIFIED",
+                "E-mail verificado com sucesso."
+        );
     }
 }

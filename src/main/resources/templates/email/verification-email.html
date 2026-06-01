@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Verificação de Email</title>
+</head>
+<body style="font-family: Arial, sans-serif; background:#f4f4f4; padding:20px;">
+
+<div style="
+    max-width:600px;
+    margin:auto;
+    background:white;
+    padding:30px;
+    border-radius:10px;
+">
+
+    <h2 style="color:#2563eb;">
+        Verificação de Email
+    </h2>
+
+    <p>Olá!</p>
+
+    <p>Utilize o código abaixo:</p>
+
+    <div style="
+        background:#2563eb;
+        color:white;
+        font-size:28px;
+        text-align:center;
+        padding:15px;
+        border-radius:8px;
+        letter-spacing:5px;
+        font-weight:bold;
+    ">
+        <span th:text="${code}"></span>
+    </div>
+
+    <p style="margin-top:20px;">
+        Este código expira em
+        <strong th:text="${expirationMinutes}"></strong>
+        minutos.
+    </p>
+
+</div>
+
+</body>
+</html>

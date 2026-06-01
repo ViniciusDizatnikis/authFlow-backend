@@ -1,6 +1,11 @@
 package com.viniciusDizatnikis.auth_service.controllers;
 
 import com.viniciusDizatnikis.auth_service.dto.*;
+import com.viniciusDizatnikis.auth_service.dto.register.PreRegisterDTO;
+import com.viniciusDizatnikis.auth_service.dto.register.PreRegisterResponseDTO;
+import com.viniciusDizatnikis.auth_service.dto.RegisterRequestDTO;
+import com.viniciusDizatnikis.auth_service.dto.register.VerifyEmailDTO;
+import com.viniciusDizatnikis.auth_service.dto.register.VerifyEmailResponseDTO;
 import com.viniciusDizatnikis.auth_service.service.AuthService;
 import com.viniciusDizatnikis.auth_service.service.EmailVerificationService;
 import com.viniciusDizatnikis.auth_service.service.PasswordResetService;
@@ -15,9 +20,32 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
-    private final EmailVerificationService emailVerificationService; // novo
+    private final EmailVerificationService emailVerificationService;
     private final PasswordResetService passwordResetService;
     private final RefreshTokenService refreshTokenService;
+
+
+    //Enviar token para o email para validar
+    @PostMapping("/pre-register")
+    public ResponseEntity<PreRegisterResponseDTO> preRegister(@RequestBody PreRegisterDTO dto) {
+        return ResponseEntity.ok(
+                authService.preRegister(dto.email())
+        );
+    }
+
+    //Validar o code do usuário
+    @PostMapping("/verify-email")
+    public ResponseEntity<VerifyEmailResponseDTO> verifyEmail(@RequestBody VerifyEmailDTO dto) {
+        VerifyEmailResponseDTO result =
+                emailVerificationService.verifyCode(
+                        dto.email(),
+                        dto.code()
+                );
+
+        return ResponseEntity.ok(result);
+    }
+
+
 
     @PostMapping("/register")
     public ResponseEntity<String> register(@RequestBody RegisterRequestDTO dto) {
@@ -31,11 +59,7 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/verify-email")
-    public ResponseEntity<String> verifyEmail(@RequestBody VerifyEmailDTO dto) {
-        emailVerificationService.verifyCode(dto.email(), dto.code());
-        return ResponseEntity.ok("Email verificado com sucesso");
-    }
+
 
     @PostMapping("/forgot-password")
     public ResponseEntity<String> forgotPassword(@RequestBody RequestPasswordResetDTO dto) {
@@ -47,13 +71,6 @@ public class AuthController {
     public ResponseEntity<String> resetPassword(@RequestBody ResetPasswordDTO dto) {
         passwordResetService.resetPassword(dto.email(), dto.code(), dto.newPassword());
         return ResponseEntity.ok("Senha alterada com sucesso");
-    }
-
-
-    @PostMapping("/pre-register")
-    public ResponseEntity<String> preRegister(@RequestBody RequestPasswordResetDTO dto) {
-        String result = authService.preRegister(dto.email());
-        return ResponseEntity.ok(result);
     }
 
     @PostMapping("/verify-pre-register")

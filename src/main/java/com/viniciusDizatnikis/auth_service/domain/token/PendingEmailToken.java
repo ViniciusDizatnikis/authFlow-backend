@@ -14,11 +14,11 @@ public class PendingEmailToken {
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
 
-    private String email;        // ainda nao e um usuario
+    private String email;
     private String codeHash;
     private Integer attempts;
     private Boolean used;
-    private Boolean verified;    // true = passou pela verificacao
+    private Boolean verified;
     private LocalDateTime expiresAt;
     private LocalDateTime createdAt;
 
