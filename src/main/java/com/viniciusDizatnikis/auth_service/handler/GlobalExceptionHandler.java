@@ -56,7 +56,7 @@ public class GlobalExceptionHandler {
                 .body(error);
     }
 
-    @ExceptionHandler(EmailSendingException.class)
+    @ExceptionHandler(EmailVerificationTokenNotFound.class)
     public ResponseEntity<ErrorResponse> handleVerificationTokenNotFound(
             EmailVerificationTokenNotFound ex,
             HttpServletRequest request
@@ -64,8 +64,8 @@ public class GlobalExceptionHandler {
 
         ErrorResponse error = new ErrorResponse(
                 LocalDateTime.now(),
-                500,
-                "EMAIL_SENDING_ERROR",
+                HttpStatus.NOT_FOUND.value(),
+                "VERIFICATION_TOKEN_NOT_FOUND",
                 ex.getMessage(),
                 request.getRequestURI()
         );
