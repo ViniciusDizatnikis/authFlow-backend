@@ -2,7 +2,7 @@ package com.viniciusDizatnikis.auth_service.service;
 
 import com.viniciusDizatnikis.auth_service.domain.token.EmailVerificationToken;
 import com.viniciusDizatnikis.auth_service.domain.user.User;
-import com.viniciusDizatnikis.auth_service.dto.register.VerifyEmailResponseDTO;
+import com.viniciusDizatnikis.auth_service.dto.VerifyEmailResponseDTO;
 import com.viniciusDizatnikis.auth_service.exception.EmailVerificationTokenNotFound;
 import com.viniciusDizatnikis.auth_service.exception.InvalidVerificationCodeException;
 import com.viniciusDizatnikis.auth_service.exception.TokenExpiredException;

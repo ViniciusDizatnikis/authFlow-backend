@@ -5,9 +5,11 @@ import com.viniciusDizatnikis.auth_service.domain.token.RefreshToken;
 import com.viniciusDizatnikis.auth_service.domain.user.User;
 import com.viniciusDizatnikis.auth_service.dto.LoginRequestDTO;
 import com.viniciusDizatnikis.auth_service.dto.LoginResponseDTO;
-import com.viniciusDizatnikis.auth_service.dto.RegisterRequestDTO;
+import com.viniciusDizatnikis.auth_service.dto.register.RegisterDTO;
 import com.viniciusDizatnikis.auth_service.dto.register.PreRegisterResponseDTO;
-import com.viniciusDizatnikis.auth_service.exception.UserAlreadyExistsException;
+import com.viniciusDizatnikis.auth_service.dto.register.PreVerificationResponseDTO;
+import com.viniciusDizatnikis.auth_service.dto.register.RegisterResponseDTO;
+import com.viniciusDizatnikis.auth_service.exception.*;
 import com.viniciusDizatnikis.auth_service.infra.security.CodeService;
 import com.viniciusDizatnikis.auth_service.infra.security.TokenService;
 import com.viniciusDizatnikis.auth_service.repositories.EmailVerificationTokenRepository;
@@ -61,56 +63,76 @@ public class AuthService {
         );
     }
 
-    public void verifyPreRegisterCode(String email, String inputCode) {
+    public PreVerificationResponseDTO verifyPreRegisterCode(String email, String inputCode) {
         PendingEmailToken token = pendingEmailTokenRepository
                 .findTopByEmailAndUsedFalseOrderByCreatedAtDesc(email)
-                .orElseThrow(() -> new RuntimeException("Nenhum codigo pendente para esse email"));
+                .orElseThrow(() -> new EmailVerificationTokenNotFound(
+                        "Nenhum token ativo encontrado para o e-mail: " + email
+                ));
 
         if (token.getExpiresAt().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("Codigo expirado. Solicite um novo");
+            throw new TokenExpiredException("Codigo expirado");
         }
 
         if (token.getAttempts() >= 5) {
-            throw new RuntimeException("Muitas tentativas. Solicite um novo codigo");
+            throw new TooManyAttemptsException("Muitas tentativas. Solicite um novo codigo");
         }
 
         token.setAttempts(token.getAttempts() + 1);
         pendingEmailTokenRepository.save(token);
 
         if (!codeService.verify(inputCode, token.getCodeHash())) {
-            throw new RuntimeException("Codigo incorreto. Tentativas restantes: " + (5 - token.getAttempts()));
+            throw new InvalidVerificationCodeException(
+                    "Código incorreto. Tentativas restantes: " + (5 - token.getAttempts())
+            );
         }
 
-        // marca como verificado — libera o proximo passo
+        // marca como verificado
         token.setVerified(true);
         pendingEmailTokenRepository.save(token);
+
+        return new PreVerificationResponseDTO(
+                200,
+                "EMAIL_VERIFIED",
+                "E-mail verificado com sucesso.",
+                email,
+                true
+        );
     }
 
+    public RegisterResponseDTO register(RegisterDTO dto) {
 
-
-    public String register(RegisterRequestDTO dto) {
-
-        // confirma que o email passou pela verificacao
         PendingEmailToken pending = pendingEmailTokenRepository
                 .findTopByEmailAndVerifiedTrueAndUsedFalseOrderByCreatedAtDesc(dto.email())
-                .orElseThrow(() -> new RuntimeException("Email nao verificado. Complete a verificacao primeiro"));
+                .orElseThrow(() ->
+                        new EmailNotVerified(
+                                "Email nao verificado. Complete a verificacao primeiro"
+                        )
+                );
 
         if (userRepository.findByEmail(dto.email()).isPresent()) {
-            throw new RuntimeException("Email já cadastrado");
+            throw new EmailAlreadyRegistered("Email já cadastrado");
         }
 
         User user = new User();
         user.setName(dto.name());
         user.setEmail(dto.email());
         user.setPassword(passwordEncoder.encode(dto.password()));
-        user.setEmailVerified(true); // ja verificado antes do cadastro
+        user.setEmailVerified(true);
+
         userRepository.save(user);
 
-        // consome o token — nao pode cadastrar de novo com mesmo token
         pending.setUsed(true);
         pendingEmailTokenRepository.save(pending);
 
-        return "Conta criada com sucesso";
+        return new RegisterResponseDTO(
+                201,
+                "USER_CREATED",
+                "Conta criada com sucesso.",
+                user.getId(),
+                user.getName(),
+                user.getEmail()
+        );
     }
 
     public LoginResponseDTO login(LoginRequestDTO dto) {
@@ -126,7 +148,6 @@ public class AuthService {
 
         return new LoginResponseDTO(accessToken, refreshToken.getToken(), user.getName());
     }
-
 
 
 }

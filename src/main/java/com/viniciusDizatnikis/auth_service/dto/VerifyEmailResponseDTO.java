@@ -1,4 +1,4 @@
-package com.viniciusDizatnikis.auth_service.dto.register;
+package com.viniciusDizatnikis.auth_service.dto;
 
 public record VerifyEmailResponseDTO(
         int status,
